@@ -1,22 +1,167 @@
 const fs = require('fs')
 const puppeteer = require('puppeteer')
+const dfd = require('danfojs-node')
 
-async function run() {
-    const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
-    const page = await browser.newPage();
-
-    await page.goto('https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx');
+//Navigate to docket & wait for page to load
+async function navigateToPage(browser, page, url){
+    await page.goto(url)
     await page.waitForSelector('#MainContent_ddlDatabase')
-    await page.$eval('#MainContent_ddlDatabase', el => el.value = '2');
-    await page.waitForSelector('#MainContent_txtCaseNumber');
-    await page.$eval('#MainContent_txtCaseNumber', el => el.value = '2022L000001');
+}
+
+//Convert a sequence into six digits by adding preceding zeroes
+function addLeadingZeroes(seq){
+    const length = ('' + seq).length
+    if (length < 6) {
+        let stringSeq = ''
+        const numPrecedingZeroes = 6 - length
+        stringSeq = '0'.repeat(numPrecedingZeroes)
+        stringSeq += seq
+        return stringSeq
+    } else {
+        return '' + seq
+    }
+}
+
+//Parse case num for division, then search the case num
+async function searchCaseNum(browser, page, caseNum) { //casenum is in format of [yyyy, div, seq]
+    const division = caseNum[1] === 'L' ? '2' : '1'
+    const seqStr = addLeadingZeroes(caseNum[2])
+    console.log(seqStr, caseNum)
+    const caseNumStr = caseNum[0] + caseNum[1] + seqStr
+    await page.select('#MainContent_ddlDatabase', division)
+
+    const caseNumField = await page.waitForSelector('#MainContent_txtCaseNumber');
+    await caseNumField.type(`${caseNumStr}`)
     await Promise.all([
         page.click('#MainContent_btnSearch'),
         page.waitForNavigation({waitfor: 'networkidle0'})
     ])
+}
 
-    //const caseInfo = await page.$eval('#MainContent_pnlDetails', el => el)
-    await page.waitForSelector('#MainContent_pnlDetails')
+//Scrape all table data from docket, then check if any case activity is related to proofs
+async function scrapeCaseActivity(browser, page) {
+    const caseData = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table tr');
+        return Array.from(rows, row => {
+            const columns = row.querySelectorAll('td');
+            return Array.from(columns, column => column.innerText.trim())
+        })
+    });
+    
+    //Store info from caseData that only contains proof-related case activity information
+    let activityInfo = {}
+    for (let i = 0; i < caseData.length; i++) {
+        if (caseData[i][0] === "Activity Date:" && caseData[i][3].toLowerCase().includes('serv')) { //change to regex later to remove need to convert to lowercase first
+            activityInfo[i] = {
+                "actDate": caseData[i][1],
+                "eventDesc": caseData[i][3],
+                "comments": caseData[i][5]
+            }
+        }
+    }
+    return activityInfo
+}
+
+async function scrape(year, div, start, end) { //start & end are seq from case num
+    const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
+    const page = await browser.newPage();
+    const startSeq = Number(start)
+    const endSeq = Number(end)
+    let cases = {}
+
+    await navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
+
+    //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
+    for (let i = startSeq; i <= endSeq; i++) {
+        let currCase = [year, div, i]
+
+        await searchCaseNum(browser, page, currCase)
+        await page.waitForSelector('#MainContent_pnlDetails')
+
+        const caseHistory = await scrapeCaseActivity(browser, page)
+
+        let caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ({
+            caseNum: e.querySelector('#MainContent_lblCaseNumber').innerText,
+            dateFiled: e.querySelector('#MainContent_lblDateFiled').innerText,
+            caseType: e.querySelector('#MainContent_lblCaseType').innerText,
+            plaintiff: e.querySelector('#MainContent_lblPlaintiffs').innerText,
+            attorney: e.querySelector('#MainContent_lblAttorney').innerText.trim()
+        })))
+        caseInfo.push({"caseActivity": caseHistory})
+        cases[currCase.join('')] = caseInfo
+        
+        await Promise.all([
+            page.click('#MainContent_btnSearch2'),
+            page.waitForNavigation({waitfor: 'networkidle0'})
+        ])
+    }
+
+    // Save scraped data to JSON file
+    fs.writeFile('cases.json', JSON.stringify(cases), (err) => {
+        if (err) throw err;
+        console.log('File saved')
+    })
+    
+    await browser.close();
+}
+
+scrape(2022, 'L', '000001', '000002');
+
+// import data from './cases.json' assert { type: 'JSON' }
+// console.log(data)
+
+//https://danfo.jsdata.org/
+
+
+
+//navigate to search page
+//for case nums x through y
+    //search case num: 20223000001 (civil), 2022L000001(law)
+        //take in case num, split to determine dvision
+    //scrape data
+    //save scraped data
+    //return to search page
+//output all scraped data into 1 file
+
+
+    //previous code to search case num
+    // await page.$eval('#MainContent_ddlDatabase', el => el.value = '2');
+    // await page.waitForSelector('#MainContent_txtCaseNumber');
+    // await page.$eval('#MainContent_txtCaseNumber', el => el.value = '2022L000001');
+    // await Promise.all([
+    //     page.click('#MainContent_btnSearch'),
+    //     page.waitForNavigation({waitfor: 'networkidle0'})
+    // ])
+
+
+    //previous code to scrape case history for proof-related info
+    /*
+    //Case Acitivities: pull all content in tables
+    const caseData = await page.evaluate(() => {
+        const rows = document.querySelectorAll('table tr');
+        return Array.from(rows, row => {
+            const columns = row.querySelectorAll('td');
+            return Array.from(columns, column => column.innerText.trim())
+        })
+    });
+    
+    //await page.screenshot({path: 'example.png', fullPage: true})
+
+    //Create new array from caseData that only contains case activity information
+    let activityInfo = {}
+    for (let i = 0; i < caseData.length; i++) {
+    //for (let data of caseData) {
+        if (caseData[i][0] === "Activity Date:" && caseData[i][3].toLowerCase().includes('serv')) { //change to regex later to remove need to conver to lowercase first
+            activityInfo[i] = {
+                "actDate": caseData[i][1],
+                "eventDesc": caseData[i][3],
+                "comments": caseData[i][5]
+            }
+        }
+    }
+    */
+
+    //const caseActivs = await page.waitForSelector('text/Case Activities')
     // const caseNo = await page.waitForSelector('text/Case Number')
     // const caseNoText = await caseNo.evaluate(el => el.textContent)
     // const caseType = await page.waitForSelector('text/Case Type')
@@ -26,6 +171,8 @@ async function run() {
     //     })))
     //const caseInfo = await page.evaluate(() => document.body.innerText)
     
+    //const caseInfo = await page.$eval('#MainContent_pnlDetails', el => el)
+
     // const allTables = await page.evaluate(() => Array.from(document.querySelectorAll('#MainContent_pnlDetails tbody'), (e) => ({
     //     caseNum: e.querySelector('#MainContent_lblCaseNumber').value
     // })))
@@ -33,36 +180,10 @@ async function run() {
     // const caseDetails = await page.evaluate(() => Array.from(document.querySelectorAll('table #MainContent_lblCaseNumber'), (e) => ({
 
     // })))
-    const caseActivs = await page.waitForSelector('text/Case Activities')
-    const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ({
-        caseNum: e.querySelector('#MainContent_lblCaseNumber').innerText,
-        dateFiled: e.querySelector('#MainContent_lblDateFiled').innerText,
-        caseType: e.querySelector('#MainContent_lblCaseType').innerText,
-        plaintiff: e.querySelector('#MainContent_lblPlaintiffs').innerText,
-        attorney: e.querySelector('#MainContent_lblAttorney').innerText.trim()
-        //caseActivities: e.querySelectorAll('')
-    })))
 
-    const caseData = await page.evaluate(() => {
-        const rows = document.querySelectorAll('table tr');
-        return Array.from(rows, row => {
-            const columns = row.querySelectorAll('td');
-            return Array.from(columns, column => column.innerText.trim())
-        })
-    });
-    
-    const caseData2 = await page.evaluate(() => {
-        const rows = document.querySelectorAll('')
-    })
-    // const returnActivity = await caseData.filter(activity => {
-    //     if (activity.includes('Summons Returned') || activity.includes('Summons Served')) {
-    //         return activity
-    //     }
+    // const caseData2 = await page.evaluate(() => {
+    //     const rows = document.querySelectorAll('')
     // })
-
-    console.log(caseData)
-    //await page.screenshot({path: 'example.png', fullPage: true})
-
 
     //const html = await page.content();
     //const text = await page.evaluate(() => document.body.innerText)
@@ -76,18 +197,3 @@ async function run() {
     //     value: e.value
     // })))
     //console.log(divisions)
-
-
-    // Save data to JSON file
-    fs.writeFile('caseInfo.json', JSON.stringify(caseInfo), (err) => {
-        if (err) throw err;
-        console.log('File saved')
-    })
-    
-    await browser.close();
-}
-
-run();
-
-
-//https://danfo.jsdata.org/
