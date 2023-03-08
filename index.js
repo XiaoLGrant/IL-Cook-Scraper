@@ -26,12 +26,13 @@ function addLeadingZeroes(seq){
 async function searchCaseNum(browser, page, caseNum) { //casenum is in format of [yyyy, div, seq]
     const division = caseNum[1] === 'L' ? '2' : '1'
     const seqStr = addLeadingZeroes(caseNum[2])
-    console.log(seqStr, caseNum)
     const caseNumStr = caseNum[0] + caseNum[1] + seqStr
+    console.log(caseNumStr)
     await page.select('#MainContent_ddlDatabase', division)
 
     const caseNumField = await page.waitForSelector('#MainContent_txtCaseNumber');
     await caseNumField.type(`${caseNumStr}`)
+    await page.screenshot({path: 'example.png', fullPage: true})
     await Promise.all([
         page.click('#MainContent_btnSearch'),
         page.waitForNavigation({waitfor: 'networkidle0'})
@@ -74,33 +75,85 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
     //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
     for (let i = startSeq; i <= endSeq; i++) {
         let currCase = [year, div, i]
+        // let data = fs.readFileSync("cases.json")
+        // let dataObj = JSON.parse(data)
+
+        const streamCases = fs.createWriteStream('streamCases.json', {flags: 'a'})
 
         await searchCaseNum(browser, page, currCase)
         await page.waitForSelector('#MainContent_pnlDetails')
 
         const caseHistory = await scrapeCaseActivity(browser, page)
 
-        let caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ({
-            caseNum: e.querySelector('#MainContent_lblCaseNumber').innerText,
-            dateFiled: e.querySelector('#MainContent_lblDateFiled').innerText,
-            caseType: e.querySelector('#MainContent_lblCaseType').innerText,
-            plaintiff: e.querySelector('#MainContent_lblPlaintiffs').innerText,
-            attorney: e.querySelector('#MainContent_lblAttorney').innerText.trim()
-        })))
-        caseInfo.push({"caseActivity": caseHistory})
-        cases[currCase.join('')] = caseInfo
+        // let caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ({
+        //     caseNum: e.querySelector('#MainContent_lblCaseNumber').innerText,
+        //     dateFiled: e.querySelector('#MainContent_lblDateFiled').innerText,
+        //     caseType: e.querySelector('#MainContent_lblCaseType').innerText,
+        //     plaintiff: e.querySelector('#MainContent_lblPlaintiffs').innerText,
+        //     attorney: e.querySelector('#MainContent_lblAttorney').innerText.trim()
+        // })))
         
+        let caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
+            ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
+            ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
+            ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
+            ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText],
+            ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
+        ])))
+
+        let objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
+        objectCaseInfo["caseAcitvity"] = caseHistory
+        //console.log(objectCaseInfo)
+        cases[currCase.join('')] = objectCaseInfo
+        console.log('case info pulled')
         await Promise.all([
             page.click('#MainContent_btnSearch2'),
             page.waitForNavigation({waitfor: 'networkidle0'})
         ])
+
+         //loop through case history
+            //for each case activity, append new case info object to json file
+        //store JSON 
+
+        if (!fs.existsSync('cases.json')) {
+            fs.closeSync(fs.openSync('cases.json', 'w'))
+        }
+
+        //const file = fs.readFileSync('cases.json')
+        const dat = {}
+        dat[currCase.join('')] = objectCaseInfo
+        streamCases.write(JSON.stringify(dat))
+        // if (file.length == 0) {
+        //     fs.writeFileSync('cases.json', JSON.stringify([dat]))
+        //     console.log('file created, data added')
+        // } else {
+        //     let json = JSON.parse(file.toString())
+        //     console.log(typeof json)
+        //     json.push({dat})
+        //     //json[currCase.join('')] = dat
+        //     console.log(json)
+        //     fs.appendFile('cases.json', JSON.stringify(json), (err) => {
+        //         if (err) {
+        //             console.log(err)
+        //         } else {
+        //             console.log('File updated')
+        //         }
+        //     })
+        // }
+        // dataObj.push(objectCaseInfo)
+        // let allCaseInfo = JSON.stringify(dataObj)
+        // fs.writeFile("cases2.json", allCaseInfo, (err) => {
+        //     if (err) throw err;
+        //     console.log('new data added')
+        // })
+       
     }
 
     // Save scraped data to JSON file
-    fs.writeFile('cases.json', JSON.stringify(cases), (err) => {
-        if (err) throw err;
-        console.log('File saved')
-    })
+    // fs.writeFile('cases.json', JSON.stringify(cases), (err) => {
+    //     if (err) throw err;
+    //     console.log('File saved')
+    // })
     
     await browser.close();
 }
