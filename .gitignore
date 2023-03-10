@@ -1,1 +1,7 @@
 node_modules
+.env
+index_draft1.js
+cases.json
+cases copy.json
+streamCases.json
+example.png
