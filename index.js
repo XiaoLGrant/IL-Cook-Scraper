@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
 //const fs = require('fs')
+import fs from 'fs'
 import puppeteer from 'puppeteer'
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL
@@ -30,7 +31,11 @@ function addLeadingZeroes(seq){
 
 //Parse case num for division, then search the case num
 async function searchCaseNum(browser, page, caseNum) { //caseNum is in format of [yyyy, div, seq]
-    const division = caseNum[1] === 'L' ? '2' : '1'
+    const divSelections = {
+        'L': '2',
+        'D': '4',
+    }
+    const division = divSelections[caseNum[1]] ? divSelections[caseNum[1]] : '1'
     const seqStr = addLeadingZeroes(caseNum[2])
     const caseNumStr = caseNum[0] + caseNum[1] + seqStr
     console.log(caseNumStr)
@@ -69,6 +74,18 @@ async function scrapeCaseActivity(browser, page) {
     return activityInfo
 }
 
+//Select all data from IL Cook Circuit Cases table, then save a local csv
+async function downloadCsv(){
+    const {data, error} = await supabase.from('il_cook_circuit_cases').select().csv()
+    fs.writeFile('casesTest.csv', data, (err) => {
+        if (err) {
+            console.log(err)
+        } else {
+            console.log('csv written successfully')
+        }
+    })
+}
+
 async function scrape(year, div, start, end) { //start & end are seq from case num
     const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
     const page = await browser.newPage();
@@ -84,7 +101,7 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
         await searchCaseNum(browser, page, currCase)
         await page.waitForSelector('#MainContent_pnlDetails')
 
-        const caseHistory = await scrapeCaseActivity(browser, page)
+        //const caseHistory = await scrapeCaseActivity(browser, page)
         
         const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
             ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
@@ -95,32 +112,15 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
         ])))
 
         const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-        console.log('case info pulled')
+        console.log('scraped')
         
-        //if no proof-related case activity, push case info only. Otherwise, push case info and activity info for each activity.
-        if (Object.keys(caseHistory).length === 0 && caseHistory.constructor === Object) {
-            const { data, error } = await supabase.from('il_cook_circuit_cases').insert([
-                { case_num: objectCaseInfo.caseNum,
-                date_filed: objectCaseInfo.dateFiled,
-                case_type: objectCaseInfo.caseType,
-                plaintiff: objectCaseInfo.plaintiff,
-                attorney: objectCaseInfo.attorney}
-            ])
-            console.log('add w/o case activity')
-        } else {
-            for (let activity in caseHistory) {
-                const { data, error } = await supabase.from('il_cook_circuit_cases').insert([
-                    { case_num: objectCaseInfo.caseNum,
-                    date_filed: objectCaseInfo.dateFiled,
-                    case_type: objectCaseInfo.caseType,
-                    plaintiff: objectCaseInfo.plaintiff,
-                    attorney: objectCaseInfo.attorney,
-                    act_date: caseHistory[activity]['actDate'],
-                    event_des: caseHistory[activity]['eventDesc'],
-                    comments: caseHistory[activity]['comments']}
-                ])
-            }
-        }
+        const { data, error } = await supabase.from('il_cook_circuit_cases').insert([
+            { case_num: objectCaseInfo.caseNum,
+            date_filed: objectCaseInfo.dateFiled,
+            case_type: objectCaseInfo.caseType,
+            plaintiff: objectCaseInfo.plaintiff,
+            attorney: objectCaseInfo.attorney}
+        ])
         
         await Promise.all([
             page.click('#MainContent_btnSearch2'),
@@ -130,6 +130,15 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
     }
     
     await browser.close();
+    downloadCsv()
 }
 
-scrape(2022, 'L', '000001', '000010');
+scrape(2022, '2', '000011', '000011');
+
+
+//autohot key
+//node js native UI
+//scrape all case data for nums x to y
+//omit attorneys abc already works for
+//harris county scraper works w/o having to do captcha
+//30-40k cases
