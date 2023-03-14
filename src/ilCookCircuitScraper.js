@@ -1,13 +1,11 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-//const fs = require('fs')
 import fs from 'fs'
 import puppeteer from 'puppeteer'
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL
 const supaBaseKey = process.env.SUPABASE_KEY
 const supabase = createClient(supabaseUrl, supaBaseKey)
-
 
 //Navigate to docket & wait for page to load
 async function navigateToPage(browser, page, url){
@@ -115,7 +113,9 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
         console.log('scraped')
         
         const { data, error } = await supabase.from('il_cook_circuit_cases').insert([
-            { case_num: objectCaseInfo.caseNum,
+            { /*state: 'IL',
+            county: 'Cook'*/
+            case_num: objectCaseInfo.caseNum,
             date_filed: objectCaseInfo.dateFiled,
             case_type: objectCaseInfo.caseType,
             plaintiff: objectCaseInfo.plaintiff,
@@ -126,11 +126,13 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
             page.click('#MainContent_btnSearch2'),
             page.waitForNavigation({waitfor: 'networkidle0'})
         ])
-       
+       //add killswitch to break loop
     }
     
     await browser.close();
     downloadCsv()
+    //confirm delete all data from table, then delete
+    //const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
 }
 
 scrape(2022, '2', '000011', '000011');
