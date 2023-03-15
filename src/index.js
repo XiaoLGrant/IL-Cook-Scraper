@@ -1,8 +1,12 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox } from '@nodegui/nodegui'
+import * as IlCookCircuit from './ilCookCircuitScraper.js'
+
+let selectedDocket = 0
+let cancelled = false
 
 const win = new QMainWindow();
 win.setWindowTitle('Docket Scraper');
-win.resize(400, 200)
+win.resize(400, 250)
 
 //Root view
 const rootView = new QWidget();
@@ -33,8 +37,10 @@ rootViewLayout.addWidget(fieldset);
 selectDocket.addEventListener('currentIndexChanged', (index) => {
     if (index === 0) {
         caseNumRow.setHidden(true);
+        selectedDocket = 0;
     } else if (index === 1) {
         caseNumRow.setHidden(false);
+        selectedDocket = 1;
     }
 })
 
@@ -44,21 +50,49 @@ const caseNumRowLayout = new FlexLayout();
 caseNumRow.setObjectName('caseNumRow');
 caseNumRow.setLayout(caseNumRowLayout)
 
-const startCaseNumLabel = new QLabel();
-startCaseNumLabel.setText('Input Start Case Number')
-caseNumRowLayout.addWidget(startCaseNumLabel)
+const yearDivRow = new QWidget();
+const yearDivRowLayout = new FlexLayout();
+yearDivRow.setObjectName('yearDivRow')
+yearDivRow.setLayout(yearDivRowLayout)
+caseNumRowLayout.addWidget(yearDivRow)
 
-const startCaseNumInput = new QLineEdit();
-startCaseNumInput.setObjectName('startCaseNumInput')
-caseNumRowLayout.addWidget(startCaseNumInput)
+const yearLabel = new QLabel();
+yearLabel.setText('Year')
+yearDivRowLayout.addWidget(yearLabel)
 
-const endCaseNumLabel = new QLabel();
-endCaseNumLabel.setText('Input End Case Number')
-caseNumRowLayout.addWidget(endCaseNumLabel)
+const yearInput = new QLineEdit();
+yearInput.setObjectName('yearInput')
+yearDivRowLayout.addWidget(yearInput)
 
-const endCaseNumInput = new QLineEdit();
-endCaseNumInput.setObjectName('endCaseNumInput')
-caseNumRowLayout.addWidget(endCaseNumInput)
+const divLabel = new QLabel();
+divLabel.setText('Division')
+yearDivRowLayout.addWidget(divLabel)
+
+const divInput = new QLineEdit();
+divInput.setObjectName('divInput')
+yearDivRowLayout.addWidget(divInput)
+
+const seqRow = new QWidget();
+const seqRowLayout = new FlexLayout();
+seqRow.setObjectName('seqRow')
+seqRow.setLayout(seqRowLayout)
+caseNumRowLayout.addWidget(seqRow)
+
+const startSeqLabel = new QLabel();
+startSeqLabel.setText('Starting Sequence')
+seqRowLayout.addWidget(startSeqLabel)
+
+const startSeqInput = new QLineEdit();
+startSeqInput.setObjectName('startSeqInput')
+seqRowLayout.addWidget(startSeqInput)
+
+const endSeqLabel = new QLabel();
+endSeqLabel.setText('Ending Sequence')
+seqRowLayout.addWidget(endSeqLabel)
+
+const endSeqInput = new QLineEdit();
+endSeqInput.setObjectName('endSeqInput')
+seqRowLayout.addWidget(endSeqInput)
 
 //Form columns?
 
@@ -81,16 +115,16 @@ const downloadButton = new QPushButton();
 downloadButton.setText('Download');
 downloadButton.setObjectName('downloadButton');
 
-const deleteButton = new QPushButton();
-deleteButton.setText('Delete');
-deleteButton.setObjectName('deleteButton');
+const clearDbButton = new QPushButton();
+clearDbButton.setText('Clear Database');
+clearDbButton.setObjectName('clearDbButton');
 
 //Add widgets to their respective layouts
 fieldsetLayout.addWidget(caseNumRow);
 buttonRowLayout.addWidget(startButton);
 buttonRowLayout.addWidget(stopButton);
 buttonRowLayout.addWidget(downloadButton);
-buttonRowLayout.addWidget(deleteButton);
+buttonRowLayout.addWidget(clearDbButton);
 rootViewLayout.addWidget(buttonRow);
 caseNumRow.setHidden(true);
 
@@ -104,37 +138,70 @@ const rootStyleSheet = `
         border: 2px ridge #bdbdbd;
         margin-bottom: 4px;
     }
-    #caseNumRow, #buttonRow {
-        flex-direction: column;
-    }
     #caseNumRow {
+        flex-direction: column;
         margin-bottom: 5px;
     }
-    #startCaseNumInput, #endCaseNumInput {
-        width: 200px;
+    #seqRowLayout, #yearDivRowLayout {
+        flex-direction: row;
+    }
+    #startSeqInput, #endSeqInput, #yearInput, #divInput {
         margin-left: 2px;
+        width: '45%';
     }
     #buttonRow{
         margin-bottom: 5px;
         flex-direction: row;
     }
-    #startButton{
-        width: 80px;
-        margin-right: 3px;
-    }
-    #stopButton{
-        width: 80px;
-        margin-right: 3px;
-    }
-    #downloadButton{
-        width: 80px;
-        margin-right: 3px;
-    }
-    #deleteButton{
-        width: 80px;
-    }
 `
 rootView.setStyleSheet(rootStyleSheet);
+
+
+//Event handling
+startButton.addEventListener('clicked', () => {
+    if (selectedDocket === 1) {
+        // const year = yearInput.text();
+        // const div = divInput.text();
+        // const startSeq = startSeqInput.text();
+        // const endSeq = endSeqInput.text();
+        // IlCookCircuit.scrape(year, div, startSeq, endSeq)
+
+        for (let i = 0; i < 20000; i++) {
+            if (cancelled) {
+                return
+            }
+            console.log(i)
+        }
+    } else if (selectedDocket === 0) {
+        console.log('button clicked')
+    }
+})
+
+stopButton.addEventListener('clicked', () => {
+    if (selectedDocket === 1) {
+        //check if scraper running
+        clearInterval(timeValue);
+    } else {
+        console.log('nothing to do I guess')
+    }
+})
+
+downloadButton.addEventListener('clicked', () => {
+    if (selectedDocket === 1) {
+        IlCookCircuit.downloadCsv()
+    } else {
+        console.log('Select a docket')
+    }
+})
+
+clearDbButton.addEventListener('clicked', () => {
+    if (selectedDocket === 1) {
+        //throw popup to confirm
+        IlCookCircuit.deleteAllData()
+    } else {
+        console.log('Nothing to delete i guess')
+    }
+})
 
 win.setCentralWidget(rootView);
 win.show();

@@ -6,15 +6,16 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL
 const supaBaseKey = process.env.SUPABASE_KEY
 const supabase = createClient(supabaseUrl, supaBaseKey)
+let cancelled = false
 
 //Navigate to docket & wait for page to load
-async function navigateToPage(browser, page, url){
+export async function navigateToPage(browser, page, url){
     await page.goto(url)
     await page.waitForSelector('#MainContent_ddlDatabase')
 }
 
 //Convert a sequence into six digits by adding preceding zeroes
-function addLeadingZeroes(seq){
+export function addLeadingZeroes(seq){
     const length = ('' + seq).length
     if (length < 6) {
         let stringSeq = ''
@@ -28,7 +29,7 @@ function addLeadingZeroes(seq){
 }
 
 //Parse case num for division, then search the case num
-async function searchCaseNum(browser, page, caseNum) { //caseNum is in format of [yyyy, div, seq]
+export async function searchCaseNum(browser, page, caseNum) { //caseNum is in format of [yyyy, div, seq]
     const divSelections = {
         'L': '2',
         'D': '4',
@@ -49,7 +50,7 @@ async function searchCaseNum(browser, page, caseNum) { //caseNum is in format of
 }
 
 //Scrape all table data from docket, then check if any case activity is related to proofs
-async function scrapeCaseActivity(browser, page) {
+export async function scrapeCaseActivity(browser, page) {
     const caseData = await page.evaluate(() => {
         const rows = document.querySelectorAll('table tr');
         return Array.from(rows, row => {
@@ -73,7 +74,7 @@ async function scrapeCaseActivity(browser, page) {
 }
 
 //Select all data from IL Cook Circuit Cases table, then save a local csv
-async function downloadCsv(){
+export async function downloadCsv(){
     const {data, error} = await supabase.from('il_cook_circuit_cases').select().csv()
     fs.writeFile('casesTest.csv', data, (err) => {
         if (err) {
@@ -84,7 +85,12 @@ async function downloadCsv(){
     })
 }
 
-async function scrape(year, div, start, end) { //start & end are seq from case num
+export async function deleteAllData(){
+    const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
+    console.log('All data from db deleted')
+}
+
+export async function scrape(year, div, start, end) { //start & end are seq from case num
     const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
     const page = await browser.newPage();
     const startSeq = Number(start)
@@ -94,10 +100,14 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
 
     //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
     for (let i = startSeq; i <= endSeq; i++) {
+        if (cancelled) {
+            process.exit()
+        }
+
         let currCase = [year, div, i]
 
         await searchCaseNum(browser, page, currCase)
-        await page.waitForSelector('#MainContent_pnlDetails')
+        //await page.waitForSelector('#MainContent_pnlDetails') -- not sure if this one needed
 
         //const caseHistory = await scrapeCaseActivity(browser, page)
         
@@ -134,8 +144,6 @@ async function scrape(year, div, start, end) { //start & end are seq from case n
     //confirm delete all data from table, then delete
     //const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
 }
-
-scrape(2022, '2', '000011', '000011');
 
 
 //autohot key
