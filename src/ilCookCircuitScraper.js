@@ -74,9 +74,9 @@ export async function scrapeCaseActivity(browser, page) {
 }
 
 //Select all data from IL Cook Circuit Cases table, then save a local csv
-export async function downloadCsv(){
+export async function downloadCsv(url){
     const {data, error} = await supabase.from('il_cook_circuit_cases').select().csv()
-    fs.writeFile('casesTest.csv', data, (err) => {
+    fs.writeFile(url, data, (err) => {
         if (err) {
             console.log(err)
         } else {

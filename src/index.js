@@ -1,12 +1,12 @@
-import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox } from '@nodegui/nodegui'
+import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 
 let selectedDocket = 0
-let cancelled = false
 
 const win = new QMainWindow();
 win.setWindowTitle('Docket Scraper');
-win.resize(400, 250)
+
+const errorMessage = new QErrorMessage()
 
 //Root view
 const rootView = new QWidget();
@@ -19,6 +19,14 @@ const fieldset = new QWidget();
 const fieldsetLayout = new FlexLayout();
 fieldset.setObjectName('fieldset');
 fieldset.setLayout(fieldsetLayout);
+
+// //Select Download Folder ROw
+// const downloadSelectRow = new QWidget();
+// const downloadSelectRowLayout = new FlexLayout();
+// downloadSelectRow.setObjectName('downloadSelectRow')
+// downloadSelectRow.setLayout(downloadSelectRowLayout)
+
+const fileDialog = new QFileDialog();
 
 //Select Docket Row
 const docketRow = new QWidget();
@@ -57,7 +65,7 @@ yearDivRow.setLayout(yearDivRowLayout)
 caseNumRowLayout.addWidget(yearDivRow)
 
 const yearLabel = new QLabel();
-yearLabel.setText('Year')
+yearLabel.setText('Year (YYYY)')
 yearDivRowLayout.addWidget(yearLabel)
 
 const yearInput = new QLineEdit();
@@ -65,7 +73,7 @@ yearInput.setObjectName('yearInput')
 yearDivRowLayout.addWidget(yearInput)
 
 const divLabel = new QLabel();
-divLabel.setText('Division')
+divLabel.setText('Division (D)')
 yearDivRowLayout.addWidget(divLabel)
 
 const divInput = new QLineEdit();
@@ -79,7 +87,7 @@ seqRow.setLayout(seqRowLayout)
 caseNumRowLayout.addWidget(seqRow)
 
 const startSeqLabel = new QLabel();
-startSeqLabel.setText('Starting Sequence')
+startSeqLabel.setText('Starting Sequence (123456)')
 seqRowLayout.addWidget(startSeqLabel)
 
 const startSeqInput = new QLineEdit();
@@ -87,12 +95,21 @@ startSeqInput.setObjectName('startSeqInput')
 seqRowLayout.addWidget(startSeqInput)
 
 const endSeqLabel = new QLabel();
-endSeqLabel.setText('Ending Sequence')
+endSeqLabel.setText('Ending Sequence (123456)')
 seqRowLayout.addWidget(endSeqLabel)
 
 const endSeqInput = new QLineEdit();
 endSeqInput.setObjectName('endSeqInput')
 seqRowLayout.addWidget(endSeqInput)
+
+const fileNameLabel = new QLabel();
+fileNameLabel.setText('File Name')
+seqRowLayout.addWidget(fileNameLabel)
+
+const fileNameInput = new QLineEdit();
+fileNameInput.setObjectName('fileNameInput')
+seqRowLayout.addWidget(fileNameInput)
+
 
 //Form columns?
 
@@ -158,29 +175,60 @@ rootView.setStyleSheet(rootStyleSheet);
 
 
 //Event handling
+//let intervalId
+let timeoutId
+let counter = 0
+let stopNum = 5
+function intervalLoop(counter, stopNum) {
+    intervalId = setInterval(() => {
+        if (counter <= stopNum) {
+            console.log(counter)
+            counter++
+        } else {
+            return
+        }
+    }, 2000)
+}
+
+function timeoutLoop(curr, stop) {
+    timeoutId = setTimeout(function count() {
+        if (curr <= stop) {
+            console.log(curr)
+            curr++
+            timeoutId = setTimeout(count, 2000)
+        } else {
+            console.log('run clear timeout')
+            clearTimeout(timeoutId)
+        }
+        
+    }, 2000)
+}
+
 startButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
         // const year = yearInput.text();
         // const div = divInput.text();
         // const startSeq = startSeqInput.text();
         // const endSeq = endSeqInput.text();
-        // IlCookCircuit.scrape(year, div, startSeq, endSeq)
+        //if (year.length === 4 && div.length === 1 && startSeq.length === 6 && endSeq.length === 6) {
+            // IlCookCircuit.scrape(year, div, startSeq, endSeq)
+        //} else {
+        //     errorMessage.showMessage('The case numbers entered are not valid.')
+        // }
+        
 
-        for (let i = 0; i < 20000; i++) {
-            if (cancelled) {
-                return
-            }
-            console.log(i)
-        }
+        //loop(counter, stopNum)
+        timeoutLoop(counter, stopNum)
     } else if (selectedDocket === 0) {
-        console.log('button clicked')
+        errorMessage.showMessage('Select a docket to scrape from.')
     }
 })
 
 stopButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
         //check if scraper running
-        clearInterval(timeValue);
+        //clearInterval(intervalId);
+        clearTimeout(timeoutId)
     } else {
         console.log('nothing to do I guess')
     }
@@ -188,9 +236,19 @@ stopButton.addEventListener('clicked', () => {
 
 downloadButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
-        IlCookCircuit.downloadCsv()
+        fileDialog.setFileMode(FileMode.Directory)        
+        fileDialog.exec()
+        const location = fileDialog.selectedFiles();
+        const fileName = fileNameInput.text();
+
+        if (fileDialog.result() == 1 && fileName.length > 0) {
+            IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
+        } else {
+            console.log('location not selected or conditional is not working right')
+        }
+        
     } else {
-        console.log('Select a docket')
+        errorMessage.showMessage('Select a docket to download from.')
     }
 })
 
@@ -199,7 +257,7 @@ clearDbButton.addEventListener('clicked', () => {
         //throw popup to confirm
         IlCookCircuit.deleteAllData()
     } else {
-        console.log('Nothing to delete i guess')
+        errorMessage.showMessage('Select a docket delete data from.')
     }
 })
 
