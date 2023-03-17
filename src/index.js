@@ -1,5 +1,6 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
+import puppeteer from 'puppeteer'
 
 let selectedDocket = 0
 
@@ -190,18 +191,61 @@ function intervalLoop(counter, stopNum) {
     }, 2000)
 }
 
-function timeoutLoop(curr, stop) {
-    timeoutId = setTimeout(function count() {
+function scrapeTimeoutTest() {
+    return new Promise((res, rej) => function() {
+        cancelToken.cancel = function() {
+            rej(new Error('scrapeTimeoutTest() cancelled'))
+        }
+        setTimeout(function scrape() {
+            console.log('do scraping things')
+        }, 1000)
+    })
+}
+
+function beginTest(curr, stop, year, div) {
+
+    timeoutId = setTimeout(async function scrape() {
         if (curr <= stop) {
-            console.log(curr)
+            const browser = await puppeteer.launch();
+            const page = await browser.newPage();
+            await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
+            let currCase = [year, div, curr]
+            await IlCookCircuit.searchCaseNum(browser, page, currCase)
+            await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
+            await browser.close();
+            //console.log(curr)
             curr++
-            timeoutId = setTimeout(count, 2000)
+            timeoutId = setTimeout(scrape, 0)
         } else {
             console.log('run clear timeout')
             clearTimeout(timeoutId)
         }
         
-    }, 2000)
+    }, 0)
+    
+}
+
+function timeoutLoop(curr, stop, year, div) {
+
+    timeoutId = setTimeout(async function scrape() {
+        if (curr <= stop) {
+            const browser = await puppeteer.launch();
+            const page = await browser.newPage();
+            await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
+            let currCase = [year, div, curr]
+            await IlCookCircuit.searchCaseNum(browser, page, currCase)
+            await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
+            await browser.close();
+            //console.log(curr)
+            curr++
+            timeoutId = setTimeout(scrape, 0)
+        } else {
+            console.log('run clear timeout')
+            clearTimeout(timeoutId)
+        }
+        
+    }, 0)
+    
 }
 
 startButton.addEventListener('clicked', () => {
@@ -218,7 +262,11 @@ startButton.addEventListener('clicked', () => {
         
 
         //loop(counter, stopNum)
-        timeoutLoop(counter, stopNum)
+        let startSeq = Number(startSeqInput.text())
+        const endSeq = Number(endSeqInput.text())
+        const year = yearInput.text();
+        const div = divInput.text();
+        timeoutLoop(startSeq, endSeq, year, div)
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
     }
@@ -228,7 +276,10 @@ stopButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
         //check if scraper running
         //clearInterval(intervalId);
+        console.log(timeoutId)
         clearTimeout(timeoutId)
+        console.log(timeoutId)
+        console.log('stopitgodplswork')
     } else {
         console.log('nothing to do I guess')
     }

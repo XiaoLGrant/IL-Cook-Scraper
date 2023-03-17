@@ -100,9 +100,9 @@ export async function scrape(year, div, start, end) { //start & end are seq from
 
     //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
     for (let i = startSeq; i <= endSeq; i++) {
-        if (cancelled) {
-            process.exit()
-        }
+        // if (cancelled) {
+        //     process.exit()
+        // }
 
         let currCase = [year, div, i]
 
