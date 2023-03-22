@@ -1,4 +1,4 @@
-import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage } from '@nodegui/nodegui'
+import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import puppeteer from 'puppeteer'
 
@@ -114,6 +114,12 @@ seqRowLayout.addWidget(fileNameInput)
 
 //Form columns?
 
+//Output to track current case being scraped
+const progressTracker = new QPlainTextEdit();
+progressTracker.setObjectName('progressTracker');
+progressTracker.setReadOnly(true);
+rootViewLayout.addWidget(progressTracker)
+
 //Button row
 const buttonRow =  new QWidget();
 const buttonRowLayout = new FlexLayout();
@@ -167,11 +173,15 @@ const rootStyleSheet = `
         margin-left: 2px;
         width: '45%';
     }
+    #progressTracker{
+        height: 60px;
+        margin-bottom: 4px;
+    }
     #buttonRow{
         margin-bottom: 5px;
         flex-direction: row;
     }
-`
+`;
 rootView.setStyleSheet(rootStyleSheet);
 
 
@@ -233,7 +243,10 @@ function timeoutLoop(curr, stop, year, div) {
             const page = await browser.newPage();
             await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
             let currCase = [year, div, curr]
-            await IlCookCircuit.searchCaseNum(browser, page, currCase)
+            let caseNumStr = IlCookCircuit.formatCaseNum(currCase)
+            progressTracker.setPlainText(`Currently scraping: ${caseNumStr}`)
+            let succesSearch = await IlCookCircuit.searchCaseNum(browser, page, currCase[1], caseNumStr)
+            console.log('found case?', succesSearch)
             await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
             await browser.close();
             //console.log(curr)
