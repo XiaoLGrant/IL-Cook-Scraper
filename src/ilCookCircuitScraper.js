@@ -9,8 +9,13 @@ const supabase = createClient(supabaseUrl, supaBaseKey)
 //Navigate to docket & wait for page to load
 export async function navigateToPage(browser, page, url){
     try {
-        await page.goto(url);
-        await page.waitForSelector('#MainContent_ddlDatabase');
+        let status = await page.goto(url);
+        status = status.status();
+        if (status != 404) {
+            await page.waitForSelector('#MainContent_ddlDatabase');
+        } else {
+            console.log('404 error')
+        }
     } catch (err) {
         console.error('Failed to navigate to page due to error: ', err);
     }
@@ -56,14 +61,11 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
         ])
         await page.screenshot({path: `currentCase.png`, fullPage: true})
 
-        //const nodeChildren1 = await page.$eval('#MainContent_lblErr p', el => el ? el.innerText : '');
-        
         //Check if the case was found on the docket
         const checkCaseFound = await page.$$eval('#MainContent_lblErr p', el => {
             return el.map(e => e ? e.innerText : null);
         });
-        console.log('caseFound?:', checkCaseFound)
-        if (checkCaseFound) {//case not found
+        if (checkCaseFound.length > 0) {//case found
             return false
         } else {//case not found
             return navigate[1].ok()
@@ -108,8 +110,6 @@ export async function downloadCsv(url){
         fs.writeFile(url, data, (err) => {
             if (err) {
                 console.log(err)
-            } else {
-                console.log('csv written successfully')
             }
         })
     } catch (err) {
