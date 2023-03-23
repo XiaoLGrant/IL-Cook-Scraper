@@ -1,7 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
 import fs from 'fs'
-import puppeteer from 'puppeteer'
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL
 const supaBaseKey = process.env.SUPABASE_KEY
@@ -15,7 +14,6 @@ export async function navigateToPage(browser, page, url){
     } catch (err) {
         console.error('Failed to navigate to page due to error: ', err);
     }
-
 }
 
 //Convert a sequence into six digits by adding preceding zeroes
@@ -73,7 +71,6 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
     } catch(err) {
         console.error('Failed to search case number due to error: ', err)
     }
-
 }
 
 //Scrape all table data from docket, then check if any case activity is related to proofs
@@ -118,7 +115,6 @@ export async function downloadCsv(url){
     } catch (err) {
         console.error('Failed to download database info as csv due to error: ', err)
     }
-
 }
 
 export async function deleteAllData(){
@@ -132,10 +128,9 @@ export async function deleteAllData(){
     } catch (err) {
         console.error('Failed to select and delete data from the database due to error: ', err)
     }
-
 }
 
-export async function scrapeToDb(page, caseNum, div, progressTracker){
+export async function scrapeDocket(browser, page, div){
     try {
         const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
             ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
@@ -146,8 +141,6 @@ export async function scrapeToDb(page, caseNum, div, progressTracker){
         ])))
     
         const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-        progressTracker.setPlainText(`Data scraped: ${caseNum}`)
-        console.log('scraped')
         
         const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
             { state: 'IL',
@@ -159,100 +152,7 @@ export async function scrapeToDb(page, caseNum, div, progressTracker){
             plaintiff: objectCaseInfo.plaintiff,
             attorney: objectCaseInfo.attorney}
         ])
-        if (!error) progressTracker.setPlainText(`Scraped data saved to db: ${caseNum}`)
-        // await Promise.all([
-        //     page.click('#MainContent_btnSearch2'),
-        //     page.waitForNavigation({waitfor: 'networkidle0'})
-        // ])
-    } catch(err) {
-        console.error('Could not scrape case info to database:', err)
-    }
-
-}
-
-export async function scrapeDocket(browser, page, div){
-    const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
-        ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
-        ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
-        ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
-        ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
-        ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
-    ])))
-
-    const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-    
-    const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
-        { state: 'IL',
-        county: 'Cook',
-        division: div,
-        case_num: objectCaseInfo.caseNum,
-        date_filed: objectCaseInfo.dateFiled,
-        case_type: objectCaseInfo.caseType,
-        plaintiff: objectCaseInfo.plaintiff,
-        attorney: objectCaseInfo.attorney}
-    ])
-}
-
-export async function scrape(start, stop, year, div, progressTracker) { //start & end are seq from case num
-    try {
-        const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
-        const page = await browser.newPage();
-        await navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
-    
-        //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
-        for (let i = start; i <= stop; i++) {
-            const caseNumStr = formatCaseNum([year, div, i])
-            const caseFound = await searchCaseNum(browser, page, div, caseNumStr)
-            //await page.waitForSelector('#MainContent_pnlDetails') -- not sure if this one needed
-            //console.log(caseFound)
-            if (caseFound) { 
-                //const caseHistory = await scrapeCaseActivity(browser, page)
-            
-                const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
-                    ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
-                    ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
-                    ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
-                    ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
-                    ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
-                ])))
-        
-                const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-                
-                const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
-                    { state: 'IL',
-                    county: 'Cook',
-                    division: div,
-                    case_num: objectCaseInfo.caseNum,
-                    date_filed: objectCaseInfo.dateFiled,
-                    case_type: objectCaseInfo.caseType,
-                    plaintiff: objectCaseInfo.plaintiff,
-                    attorney: objectCaseInfo.attorney}
-                ])
-                await Promise.all([
-                    page.click('#MainContent_btnSearch2'),
-                    page.waitForNavigation({waitfor: 'networkidle0'})
-                ])
-
-            } else if (!caseFound) {
-                progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
-            }
-        }
-        
-        await browser.close();
-        //downloadCsv()
-        //confirm delete all data from table, then delete
-        //const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
-
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }
-
 }
-
-
-//autohot key
-//node js native UI
-//scrape all case data for nums x to y
-//omit attorneys abc already works for
-//harris county scraper works w/o having to do captcha
-//30-40k cases

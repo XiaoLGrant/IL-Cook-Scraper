@@ -1,10 +1,6 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import puppeteer from 'puppeteer'
-import { createClient } from '@supabase/supabase-js'
-const supabaseUrl = process.env.SUPABASE_URL
-const supaBaseKey = process.env.SUPABASE_KEY
-const supabase = createClient(supabaseUrl, supaBaseKey)
 
 let selectedDocket = 0
 
@@ -24,12 +20,6 @@ const fieldset = new QWidget();
 const fieldsetLayout = new FlexLayout();
 fieldset.setObjectName('fieldset');
 fieldset.setLayout(fieldsetLayout);
-
-// //Select Download Folder ROw
-// const downloadSelectRow = new QWidget();
-// const downloadSelectRowLayout = new FlexLayout();
-// downloadSelectRow.setObjectName('downloadSelectRow')
-// downloadSelectRow.setLayout(downloadSelectRowLayout)
 
 const fileDialog = new QFileDialog();
 
@@ -115,9 +105,6 @@ const fileNameInput = new QLineEdit();
 fileNameInput.setObjectName('fileNameInput')
 seqRowLayout.addWidget(fileNameInput)
 
-
-//Form columns?
-
 //Output to track current case being scraped
 const progressTracker = new QPlainTextEdit();
 progressTracker.setObjectName('progressTracker');
@@ -135,10 +122,6 @@ const startButton = new QPushButton();
 startButton.setText('Start');
 startButton.setObjectName('startButton');
 
-// const stopButton = new QPushButton();
-// stopButton.setText('Stop');
-// stopButton.setObjectName('stopButton');
-
 const downloadButton = new QPushButton();
 downloadButton.setText('Download');
 downloadButton.setObjectName('downloadButton');
@@ -150,7 +133,6 @@ clearDbButton.setObjectName('clearDbButton');
 //Add widgets to their respective layouts
 fieldsetLayout.addWidget(caseNumRow);
 buttonRowLayout.addWidget(startButton);
-//buttonRowLayout.addWidget(stopButton);
 buttonRowLayout.addWidget(downloadButton);
 buttonRowLayout.addWidget(clearDbButton);
 rootViewLayout.addWidget(buttonRow);
@@ -188,38 +170,6 @@ const rootStyleSheet = `
 `;
 rootView.setStyleSheet(rootStyleSheet);
 
-//Scrape IL Cook Circuit docket using timeout loop
-let timeoutId
-
-function timeoutLoop(curr, stop, year, div) {
-    timeoutId = setTimeout(async function scrape() {
-        if (curr <= stop) {
-            const browser = await puppeteer.launch();
-            const page = await browser.newPage();
-            await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
-            let currCase = [year, div, curr]
-            let caseNumStr = IlCookCircuit.formatCaseNum(currCase)
-            progressTracker.setPlainText(`Currently scraping: ${caseNumStr}`)
-            let succesSearch = await IlCookCircuit.searchCaseNum(browser, page, currCase[1], caseNumStr)
-            console.log('found case?', succesSearch)
-            await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
-            
-            if (succesSearch) {
-                IlCookCircuit.scrapeToDb(page, caseNumStr, div, progressTracker)
-            } else if (!succesSearch) {
-                console.error('No case found')
-            }
-            await browser.close()
-            curr++
-            timeoutId = setTimeout(scrape, 0)
-        } else {
-            console.log('run clear timeout')
-            clearTimeout(timeoutId)
-        }
-    }, 0)
-    
-}
-
 //Event handling
 startButton.addEventListener('clicked', async function() {
     if (selectedDocket === 1) {
@@ -227,7 +177,6 @@ startButton.addEventListener('clicked', async function() {
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text();
         const div = divInput.text();
-        // timeoutLoop(startSeq, endSeq, year, div)
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
         await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
@@ -236,9 +185,7 @@ startButton.addEventListener('clicked', async function() {
             const caseNumStr = IlCookCircuit.formatCaseNum([year, div, i])
             progressTracker.setPlainText(`Searching case: ${caseNumStr}`)
             const caseFound = await IlCookCircuit.searchCaseNum(browser, page, div, caseNumStr)
-            //console.log(caseFound)
-            if (caseFound) { 
-                //const caseHistory = await scrapeCaseActivity(browser, page)
+            if (caseFound) {
                 progressTracker.setPlainText(`Case found, scraping data: ${caseNumStr}`)
                 await IlCookCircuit.scrapeDocket(browser, page, div)
                 await Promise.all([
@@ -251,7 +198,6 @@ startButton.addEventListener('clicked', async function() {
             }
         }
         await browser.close();
-        //await IlCookCircuit.scrape(startSeq, endSeq, year, div, progressTracker)
 
         fileDialog.setFileMode(FileMode.Directory)        
         fileDialog.exec()
@@ -268,21 +214,6 @@ startButton.addEventListener('clicked', async function() {
         errorMessage.showMessage('Select a docket to scrape from.')
     }
 })
-
-/*
-stopButton.addEventListener('clicked', () => {
-    if (selectedDocket === 1) {
-        //check if scraper running
-        //clearInterval(intervalId);
-        console.log(timeoutId)
-        clearTimeout(timeoutId)
-        console.log(timeoutId)
-        console.log('stopitgodplswork')
-    } else {
-        console.log('nothing to do I guess')
-    }
-})
-*/
 
 downloadButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
