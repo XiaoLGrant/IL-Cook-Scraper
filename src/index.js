@@ -1,6 +1,10 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import puppeteer from 'puppeteer'
+import { createClient } from '@supabase/supabase-js'
+const supabaseUrl = process.env.SUPABASE_URL
+const supaBaseKey = process.env.SUPABASE_KEY
+const supabase = createClient(supabaseUrl, supaBaseKey)
 
 let selectedDocket = 0
 
@@ -131,9 +135,9 @@ const startButton = new QPushButton();
 startButton.setText('Start');
 startButton.setObjectName('startButton');
 
-const stopButton = new QPushButton();
-stopButton.setText('Stop');
-stopButton.setObjectName('stopButton');
+// const stopButton = new QPushButton();
+// stopButton.setText('Stop');
+// stopButton.setObjectName('stopButton');
 
 const downloadButton = new QPushButton();
 downloadButton.setText('Download');
@@ -146,7 +150,7 @@ clearDbButton.setObjectName('clearDbButton');
 //Add widgets to their respective layouts
 fieldsetLayout.addWidget(caseNumRow);
 buttonRowLayout.addWidget(startButton);
-buttonRowLayout.addWidget(stopButton);
+//buttonRowLayout.addWidget(stopButton);
 buttonRowLayout.addWidget(downloadButton);
 buttonRowLayout.addWidget(clearDbButton);
 rootViewLayout.addWidget(buttonRow);
@@ -184,59 +188,10 @@ const rootStyleSheet = `
 `;
 rootView.setStyleSheet(rootStyleSheet);
 
-
-//Event handling
-//let intervalId
+//Scrape IL Cook Circuit docket using timeout loop
 let timeoutId
-let counter = 0
-let stopNum = 5
-function intervalLoop(counter, stopNum) {
-    intervalId = setInterval(() => {
-        if (counter <= stopNum) {
-            console.log(counter)
-            counter++
-        } else {
-            return
-        }
-    }, 2000)
-}
-
-function scrapeTimeoutTest() {
-    return new Promise((res, rej) => function() {
-        cancelToken.cancel = function() {
-            rej(new Error('scrapeTimeoutTest() cancelled'))
-        }
-        setTimeout(function scrape() {
-            console.log('do scraping things')
-        }, 1000)
-    })
-}
-
-function beginTest(curr, stop, year, div) {
-
-    timeoutId = setTimeout(async function scrape() {
-        if (curr <= stop) {
-            const browser = await puppeteer.launch();
-            const page = await browser.newPage();
-            await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
-            let currCase = [year, div, curr]
-            await IlCookCircuit.searchCaseNum(browser, page, currCase)
-            await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
-            await browser.close();
-            //console.log(curr)
-            curr++
-            timeoutId = setTimeout(scrape, 0)
-        } else {
-            console.log('run clear timeout')
-            clearTimeout(timeoutId)
-        }
-        
-    }, 0)
-    
-}
 
 function timeoutLoop(curr, stop, year, div) {
-
     timeoutId = setTimeout(async function scrape() {
         if (curr <= stop) {
             const browser = await puppeteer.launch();
@@ -248,43 +203,73 @@ function timeoutLoop(curr, stop, year, div) {
             let succesSearch = await IlCookCircuit.searchCaseNum(browser, page, currCase[1], caseNumStr)
             console.log('found case?', succesSearch)
             await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true})
-            await browser.close();
-            //console.log(curr)
+            
+            if (succesSearch) {
+                IlCookCircuit.scrapeToDb(page, caseNumStr, div, progressTracker)
+            } else if (!succesSearch) {
+                console.error('No case found')
+            }
+            await browser.close()
             curr++
             timeoutId = setTimeout(scrape, 0)
         } else {
             console.log('run clear timeout')
             clearTimeout(timeoutId)
         }
-        
     }, 0)
     
 }
 
-startButton.addEventListener('clicked', () => {
+//Event handling
+startButton.addEventListener('clicked', async function() {
     if (selectedDocket === 1) {
-        // const year = yearInput.text();
-        // const div = divInput.text();
-        // const startSeq = startSeqInput.text();
-        // const endSeq = endSeqInput.text();
-        //if (year.length === 4 && div.length === 1 && startSeq.length === 6 && endSeq.length === 6) {
-            // IlCookCircuit.scrape(year, div, startSeq, endSeq)
-        //} else {
-        //     errorMessage.showMessage('The case numbers entered are not valid.')
-        // }
-        
-
-        //loop(counter, stopNum)
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text();
         const div = divInput.text();
-        timeoutLoop(startSeq, endSeq, year, div)
+        // timeoutLoop(startSeq, endSeq, year, div)
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
+
+        for (let i = startSeq; i <= endSeq; i++) {
+            const caseNumStr = IlCookCircuit.formatCaseNum([year, div, i])
+            progressTracker.setPlainText(`Searching case: ${caseNumStr}`)
+            const caseFound = await IlCookCircuit.searchCaseNum(browser, page, div, caseNumStr)
+            //console.log(caseFound)
+            if (caseFound) { 
+                //const caseHistory = await scrapeCaseActivity(browser, page)
+                progressTracker.setPlainText(`Case found, scraping data: ${caseNumStr}`)
+                await IlCookCircuit.scrapeDocket(browser, page, div)
+                await Promise.all([
+                    page.click('#MainContent_btnSearch2'),
+                    page.waitForNavigation({waitfor: 'networkidle0'})
+                ])
+
+            } else {
+                progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
+            }
+        }
+        await browser.close();
+        //await IlCookCircuit.scrape(startSeq, endSeq, year, div, progressTracker)
+
+        fileDialog.setFileMode(FileMode.Directory)        
+        fileDialog.exec()
+        const location = fileDialog.selectedFiles();
+        const fileName = fileNameInput.text();
+
+        if (fileDialog.result() == 1 && fileName.length > 0) {
+            IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
+        } else {
+            errorMessage.showMessage('Please enter a file name.')
+        }
+
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
     }
 })
 
+/*
 stopButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
         //check if scraper running
@@ -297,6 +282,7 @@ stopButton.addEventListener('clicked', () => {
         console.log('nothing to do I guess')
     }
 })
+*/
 
 downloadButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
@@ -308,7 +294,7 @@ downloadButton.addEventListener('clicked', () => {
         if (fileDialog.result() == 1 && fileName.length > 0) {
             IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
         } else {
-            console.log('location not selected or conditional is not working right')
+            errorMessage.showMessage('Please enter a file name.')
         }
         
     } else {
@@ -320,6 +306,7 @@ clearDbButton.addEventListener('clicked', () => {
     if (selectedDocket === 1) {
         //throw popup to confirm
         IlCookCircuit.deleteAllData()
+        progressTracker.setPlainText(`All cases deleted from database.`)
     } else {
         errorMessage.showMessage('Select a docket delete data from.')
     }

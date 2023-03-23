@@ -45,50 +45,31 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
             'D': '4',
         }
         const division = divSelections[div] ? divSelections[div] : '1'
-        //const seqStr = addLeadingZeroes(caseNum[2])
-        //const caseNumStr = formatCaseNum(caseNum)
-        console.log(caseNumStr)
         
+        //Input division and sequence on the docket site
         await page.select('#MainContent_ddlDatabase', division)
-    
         const caseNumField = await page.waitForSelector('#MainContent_txtCaseNumber');
         await caseNumField.type(`${caseNumStr}`)
         
-        //await page.screenshot({path: `${caseNumStr}.png`, fullPage: true})
+        //Search the case number
         const navigate = await Promise.all([
             page.click('#MainContent_btnSearch'),
             page.waitForNavigation({waitfor: 'networkidle0'})
         ])
-        await page.screenshot({path: `${caseNumStr}.png`, fullPage: true})
-        // const nodeChildren1 = await page.evaluate(() => {
-        //     return Array.from(document.querySelector('#MainContent_lblErr').children.innerText)
-        // })
+        await page.screenshot({path: `currentCase.png`, fullPage: true})
 
-        const nodeChildren1 = await page.$eval('#MainContent_lblErr p', el => el.innerText);
-
-        const nodeChildren2 = await page.$$eval('#MainContent_lblErr p', el => {
-            return el.map(e => e.innerText);
+        //const nodeChildren1 = await page.$eval('#MainContent_lblErr p', el => el ? el.innerText : '');
+        
+        //Check if the case was found on the docket
+        const checkCaseFound = await page.$$eval('#MainContent_lblErr p', el => {
+            return el.map(e => e ? e.innerText : null);
         });
-        // const nodeChildren = page.$eval('#MainContent_lblErr', (e) => {
-        //     // const data = [];
-        //     // for (const child of e.children) {
-        //     //     data.push({ tagName: child.tagName, innerText: child.innerText });
-        //     // }
-        //     // return data;
-        //     //return elem.innerHTML
-        //     return e.value
-        // })
-        console.log('nodes1:', nodeChildren1)
-        console.log('nodes2:', nodeChildren2)
-        // if () {//case found
-        //     return navigate[1].ok()
-        // } else if(page.select('#MainContent_lblErr')){//case not found
-        //     return false
-        // } else {
-        //     //something else went wrong
-        // }
-        
-        
+        console.log('caseFound?:', checkCaseFound)
+        if (checkCaseFound) {//case not found
+            return false
+        } else {//case not found
+            return navigate[1].ok()
+        }
     } catch(err) {
         console.error('Failed to search case number due to error: ', err)
     }
@@ -126,7 +107,7 @@ export async function scrapeCaseActivity(browser, page) {
 //Select all data from IL Cook Circuit Cases table, then save a local csv
 export async function downloadCsv(url){
     try {
-        const {data, error} = await supabase.from('il_cook_circuit_cases').select().csv()
+        const {data, error} = await supabase.from('il_cook_circuit_cases2').select().csv()
         fs.writeFile(url, data, (err) => {
             if (err) {
                 console.log(err)
@@ -142,7 +123,7 @@ export async function downloadCsv(url){
 
 export async function deleteAllData(){
     try {
-        const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
+        const { error } = await supabase.from('il_cook_circuit_cases2').delete().gt('id', 0)
         if (error) {
             console.log('Failed to delete data from the database: ', error)
         } else {
@@ -154,26 +135,78 @@ export async function deleteAllData(){
 
 }
 
-export async function scrape(year, div, start, end) { //start & end are seq from case num
+export async function scrapeToDb(page, caseNum, div, progressTracker){
+    try {
+        const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
+            ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
+            ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
+            ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
+            ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
+            ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
+        ])))
+    
+        const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
+        progressTracker.setPlainText(`Data scraped: ${caseNum}`)
+        console.log('scraped')
+        
+        const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
+            { state: 'IL',
+            county: 'Cook',
+            division: div,
+            case_num: objectCaseInfo.caseNum,
+            date_filed: objectCaseInfo.dateFiled,
+            case_type: objectCaseInfo.caseType,
+            plaintiff: objectCaseInfo.plaintiff,
+            attorney: objectCaseInfo.attorney}
+        ])
+        if (!error) progressTracker.setPlainText(`Scraped data saved to db: ${caseNum}`)
+        // await Promise.all([
+        //     page.click('#MainContent_btnSearch2'),
+        //     page.waitForNavigation({waitfor: 'networkidle0'})
+        // ])
+    } catch(err) {
+        console.error('Could not scrape case info to database:', err)
+    }
+
+}
+
+export async function scrapeDocket(browser, page, div){
+    const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
+        ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
+        ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
+        ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
+        ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
+        ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
+    ])))
+
+    const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
+    
+    const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
+        { state: 'IL',
+        county: 'Cook',
+        division: div,
+        case_num: objectCaseInfo.caseNum,
+        date_filed: objectCaseInfo.dateFiled,
+        case_type: objectCaseInfo.caseType,
+        plaintiff: objectCaseInfo.plaintiff,
+        attorney: objectCaseInfo.attorney}
+    ])
+}
+
+export async function scrape(start, stop, year, div, progressTracker) { //start & end are seq from case num
     try {
         const browser = await puppeteer.launch(); //launches browser, allows to fire events, etc.
         const page = await browser.newPage();
-        const startSeq = Number(start)
-        const endSeq = Number(end)
-    
         await navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
     
         //Loop through each case number, search the case number, scrape needed data from the docket, and save it to the cases variable
-        for (let i = startSeq; i <= endSeq; i++) {
-    
-            let currCase = [year, div, i]
-    
-            const caseFound = await searchCaseNum(browser, page, currCase)
+        for (let i = start; i <= stop; i++) {
+            const caseNumStr = formatCaseNum([year, div, i])
+            const caseFound = await searchCaseNum(browser, page, div, caseNumStr)
             //await page.waitForSelector('#MainContent_pnlDetails') -- not sure if this one needed
-            
-            if (caseFound) { //no error about no case found, wrong case number, etc., scrape case activity
-
-                const caseHistory = await scrapeCaseActivity(browser, page)
+            //console.log(caseFound)
+            if (caseFound) { 
+                //const caseHistory = await scrapeCaseActivity(browser, page)
             
                 const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
                     ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
@@ -184,11 +217,11 @@ export async function scrape(year, div, start, end) { //start & end are seq from
                 ])))
         
                 const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-                console.log('scraped')
                 
-                const { data, error } = await supabase.from('il_cook_circuit_cases').insert([
-                    { /*state: 'IL',
-                    county: 'Cook'*/
+                const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
+                    { state: 'IL',
+                    county: 'Cook',
+                    division: div,
                     case_num: objectCaseInfo.caseNum,
                     date_filed: objectCaseInfo.dateFiled,
                     case_type: objectCaseInfo.caseType,
@@ -200,15 +233,13 @@ export async function scrape(year, div, start, end) { //start & end are seq from
                     page.waitForNavigation({waitfor: 'networkidle0'})
                 ])
 
-            } else if (caseFound == false) {
-                console.error('No response was received from the Cook Docket server')
-                break;
+            } else if (!caseFound) {
+                progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
             }
-           //add killswitch to break loop
         }
         
         await browser.close();
-        downloadCsv()
+        //downloadCsv()
         //confirm delete all data from table, then delete
         //const { error } = await supabase.from('il_cook_circuit_cases').select().delete()
 
