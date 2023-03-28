@@ -37,7 +37,7 @@ export function addLeadingZeroes(seq){
 
 export function formatCaseNum(caseNum){
     const seqStr = addLeadingZeroes(caseNum[2])
-    return caseNum[0] + caseNum[1] + seqStr
+    return ('' + caseNum[0]) + ('' + caseNum[1]) + seqStr
 }
 
 //Parse case num for division, then search the case num
