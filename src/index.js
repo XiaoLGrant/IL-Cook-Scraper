@@ -1,6 +1,19 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
+// import { join } from 'path'
+// import { tmpdir } from 'os'
+// const tmpPath = tmpdir()
+// const chromePath = join(tmpPath, '.local-chromium')
 import puppeteer from 'puppeteer'
+// const browserFetcher = puppeteer.createBrowserFetcher({
+//     path: chromePath
+//})
+// const revisionInfo = await browserFetcher.download('809590')
+// const browser = await puppeteer.launch({
+//     headless: false,
+//     executablePath: revisionInfo.executablePath,
+// })
+
 
 let selectedDocket = 0
 
@@ -177,10 +190,18 @@ startButton.addEventListener('clicked', async function() {
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text();
         const div = divInput.text();
-        const browser = await puppeteer.launch();
+        //const browser = await puppeteer.launch();
+        const isPkg = typeof process.pkg !== 'undefined';
+        const chromiumExecutablePath = (isPkg ? puppeteer.executablePath().replace(
+            /^.*?\\node_modules\\puppeteer\\\.local-chromium/,
+            path.join(path.dirname(process.execPath), 'puppeteer')
+            )
+        : puppeteer.executablePath()
+        )
+        const browser = await puppeteer.launch({executablePath: chromiumExecutablePath})
         const page = await browser.newPage();
         await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
-
+        await page.screenshot({path: `foundSite.png`, fullPage: true})
         for (let i = startSeq; i <= endSeq; i++) {
             const caseNumStr = IlCookCircuit.formatCaseNum([year, div, i])
             progressTracker.setPlainText(`Searching case: ${caseNumStr}`)
@@ -199,16 +220,16 @@ startButton.addEventListener('clicked', async function() {
         }
         await browser.close();
 
-        fileDialog.setFileMode(FileMode.Directory)        
-        fileDialog.exec()
-        const location = fileDialog.selectedFiles();
-        const fileName = fileNameInput.text();
+        // fileDialog.setFileMode(FileMode.Directory)        
+        // fileDialog.exec()
+        // const location = fileDialog.selectedFiles();
+        // const fileName = fileNameInput.text();
 
-        if (fileDialog.result() == 1 && fileName.length > 0) {
-            IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
-        } else {
-            errorMessage.showMessage('Please enter a file name.')
-        }
+        // if (fileDialog.result() == 1 && fileName.length > 0) {
+        //     IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
+        // } else {
+        //     errorMessage.showMessage('Please enter a file name.')
+        // }
 
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')

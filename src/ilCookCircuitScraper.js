@@ -89,7 +89,7 @@ export async function scrapeCaseActivity(browser, page) {
         //Store info from caseData that only contains proof-related case activity information
         let activityInfo = {}
         for (let i = 0; i < caseData.length; i++) {
-            if (caseData[i][0] === "Activity Date:" && caseData[i][3].toLowerCase().includes('serv')) { //change to regex later to remove need to convert to lowercase first
+            if (caseData[i][0] === "Activity Date:" && /^(?!.*(?:military|order)).*(serv|affidavit).*/gim.test(caseData[i][3])) {
                 activityInfo[i] = {
                     "actDate": caseData[i][1],
                     "eventDesc": caseData[i][3],
@@ -130,19 +130,38 @@ export async function deleteAllData(){
     }
 }
 
+export async function scrapeCaseInfo(browser, page){
+    const caseInfo = await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
+        ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
+        ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
+        ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
+        ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
+        ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
+    ])))
+    const objectCaseInfo = Object.fromEntries(caseInfo.flat(1))
+    return objectCaseInfo
+}
+
 export async function scrapeDocket(browser, page, div){
     try {
-        const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
-            ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
-            ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
-            ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
-            ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
-            ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
-        ])))
+        // const caseInfo =  await page.$$eval('#MainContent_pnlDetails', (elements) => elements.map(e => ([
+        //     ["caseNum", e.querySelector('#MainContent_lblCaseNumber').innerText],
+        //     ["dateFiled", e.querySelector('#MainContent_lblDateFiled').innerText],
+        //     ["caseType", e.querySelector('#MainContent_lblCaseType').innerText],
+        //     ["plaintiff", e.querySelector('#MainContent_lblPlaintiffs').innerText.trim()],
+        //     ["attorney", e.querySelector('#MainContent_lblAttorney').innerText.trim()]
+        // ])))
     
-        const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
+        // const caseActivity = await scrapeCaseActivity(browser, page)
+        // console.log('docketInfo:', caseActivity)
+        const {caseInfo2, proofActivity} = Promise.allSettled([scrapeCaseInfo(browser, page), scrapeCaseActivity(browser, page)])
+        //new data to be added
+        //const objectCaseInfo = Object.fromEntries(caseInfo2.flat(1))
+        console.log('caseInfo:', caseInfo2)
+        console.log('docketInfo:', proofActivity)
         
-        const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
+        
+        /*const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([
             { state: 'IL',
             county: 'Cook',
             division: div,
@@ -151,7 +170,7 @@ export async function scrapeDocket(browser, page, div){
             case_type: objectCaseInfo.caseType,
             plaintiff: objectCaseInfo.plaintiff,
             attorney: objectCaseInfo.attorney}
-        ])
+        ])*/
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }
