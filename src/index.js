@@ -179,6 +179,7 @@ startButton.addEventListener('clicked', async function() {
         const div = divInput.text();
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(60000)
         await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
 
         for (let i = startSeq; i <= endSeq; i++) {
