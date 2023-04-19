@@ -157,8 +157,8 @@ export async function scrapeDocket(browser, page, div){
         const {caseInfo2, proofActivity} = Promise.allSettled([scrapeCaseInfo(browser, page), scrapeCaseActivity(browser, page)])
         //new data to be added
         //const objectCaseInfo = Object.fromEntries(caseInfo2.flat(1))
-        console.log('caseInfo:', caseInfo2)
-        console.log('docketInfo:', proofActivity)
+        // console.log('caseInfo:', caseInfo2)
+        // console.log('docketInfo:', proofActivity)
         
         
         /*const { data, error } = await supabase.from('il_cook_circuit_cases2').insert([

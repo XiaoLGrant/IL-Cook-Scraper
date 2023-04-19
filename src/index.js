@@ -5,6 +5,7 @@ import * as IlCookCircuit from './ilCookCircuitScraper.js'
 // const tmpPath = tmpdir()
 // const chromePath = join(tmpPath, '.local-chromium')
 import puppeteer from 'puppeteer'
+import random_useragent from 'random-useragent'
 // const browserFetcher = puppeteer.createBrowserFetcher({
 //     path: chromePath
 //})
@@ -198,8 +199,10 @@ startButton.addEventListener('clicked', async function() {
             )
         : puppeteer.executablePath()
         )
-        const browser = await puppeteer.launch({executablePath: chromiumExecutablePath})
+        const browser = await puppeteer.launch({executablePath: chromiumExecutablePath, headless: false})
         const page = await browser.newPage();
+        await page.setDefaultTimeout(60000);
+        await page.setUserAgent(random_useragent.getRandom());
         await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
         await page.screenshot({path: `foundSite.png`, fullPage: true})
         for (let i = startSeq; i <= endSeq; i++) {
