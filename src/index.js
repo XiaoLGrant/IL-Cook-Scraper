@@ -1,6 +1,7 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import puppeteer from 'puppeteer'
+import random_useragent from 'random-useragent'
 
 let selectedDocket = 0
 
@@ -175,11 +176,12 @@ startButton.addEventListener('clicked', async function() {
     if (selectedDocket === 1) {
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
-        const year = yearInput.text();
-        const div = divInput.text();
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        page.setDefaultNavigationTimeout(60000)
+        const year = yearInput.text()
+        const div = divInput.text()
+        const browser = await puppeteer.launch()
+        const page = await browser.newPage()
+        await page.setDefaultNavigationTimeout(60000)
+        await page.setUserAgent(random_useragent.getRandom())
         await IlCookCircuit.navigateToPage(browser, page, 'https://casesearch.cookcountyclerkofcourt.org/CivilCaseSearchAPI.aspx')
 
         for (let i = startSeq; i <= endSeq; i++) {
