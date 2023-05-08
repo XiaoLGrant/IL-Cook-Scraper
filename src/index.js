@@ -1,5 +1,6 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
+import * as AzMaricopaJC from './azMaricopaJusticeCourts.js'
 import puppeteer from 'puppeteer'
 import random_useragent from 'random-useragent'
 
@@ -33,6 +34,7 @@ docketRow.setLayout(docketRowLayout)
 const selectDocket = new QComboBox();
 selectDocket.addItem(undefined, 'Select a Docket');
 selectDocket.addItem(undefined, 'IL Cook Circuit');
+selectDocket.addItem(undefined, 'AZ Maricopa Justice Court')
 
 fieldsetLayout.addWidget(docketRow);
 fieldsetLayout.addWidget(selectDocket);
@@ -45,6 +47,9 @@ selectDocket.addEventListener('currentIndexChanged', (index) => {
     } else if (index === 1) {
         caseNumRow.setHidden(false);
         selectedDocket = 1;
+    } else if (index === 2) {
+        caseNumRow.setHidden(false);
+        selectedDocket = 2;
     }
 })
 
@@ -173,12 +178,12 @@ rootView.setStyleSheet(rootStyleSheet);
 
 //Event handling
 startButton.addEventListener('clicked', async function() {
-    if (selectedDocket === 1) {
+    if (selectedDocket === 1) {//scrape IL cook circuit docket
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text()
         const div = divInput.text()
-        const browser = await puppeteer.launch()
+        const browser = await puppeteer.launch({headless: false})
         const page = await browser.newPage()
         await page.setDefaultNavigationTimeout(60000)
         await page.setUserAgent(random_useragent.getRandom())
@@ -193,7 +198,7 @@ startButton.addEventListener('clicked', async function() {
                 await IlCookCircuit.scrapeDocket(browser, page, div)
                 await Promise.all([
                     page.click('#MainContent_btnSearch2'),
-                    page.waitForNavigation({waitfor: 'networkidle0'})
+                    page.waitForNavigation({waitfor: 'domcontentloaded'})
                 ])
 
             } else {
@@ -213,6 +218,46 @@ startButton.addEventListener('clicked', async function() {
             errorMessage.showMessage('Please enter a file name.')
         }
 
+    } if (selectedDocket === 2) { //scrape AZ Maricopa Justice Courts docket
+        let startSeq = Number(startSeqInput.text())
+        const endSeq = Number(endSeqInput.text())
+        const year = yearInput.text()
+        const div = divInput.text()
+        const browser = await puppeteer.launch({headless: false})
+        const page = await browser.newPage()
+        await page.setDefaultNavigationTimeout(60000)
+        await page.setUserAgent(random_useragent.getRandom())
+        await AzMaricopaJC.navigateToPage(browser, page, 'https://justicecourts.maricopa.gov/app/courtrecords/CaseSearch?q=cn')
+
+        for (let i = startSeq; i <= endSeq; i++) {
+            const caseNumStr = AzMaricopaJC.formatCaseNum([year, div, i])
+            progressTracker.setPlainText(`Searching case: ${caseNumStr}`)
+            const caseFound = await AzMaricopaJC.searchCaseNum(browser, page, div, caseNumStr)
+            if (caseFound) {
+                progressTracker.setPlainText(`Case found, scraping data: ${caseNumStr}`)
+                await AzMaricopaJC.scrapeDocket(browser, page, div)
+                await Promise.all([
+                    page.click('.jc-btn-back'),
+                    page.waitForNavigation({waitfor: 'domcontentloaded'})
+                ])
+
+            } else {
+                progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
+            }
+        }
+        await browser.close();
+
+        // fileDialog.setFileMode(FileMode.Directory)        
+        // fileDialog.exec()
+        // const location = fileDialog.selectedFiles();
+        // const fileName = fileNameInput.text();
+
+        // if (fileDialog.result() == 2 && fileName.length > 0) {
+        //     AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
+        // } else {
+        //     errorMessage.showMessage('Please enter a file name.')
+        // }
+
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
     }
@@ -227,6 +272,8 @@ downloadButton.addEventListener('clicked', () => {
 
         if (fileDialog.result() == 1 && fileName.length > 0) {
             IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
+        } else if (fileDialog.result() == 2 && fileName.length > 0) {
+            AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
         } else {
             errorMessage.showMessage('Please enter a file name.')
         }
@@ -241,6 +288,8 @@ clearDbButton.addEventListener('clicked', () => {
         //throw popup to confirm
         IlCookCircuit.deleteAllData()
         progressTracker.setPlainText(`All cases deleted from database.`)
+    } else if (selectedDocket === 2) {
+        AzMaricopaJC.deleteAllData()
     } else {
         errorMessage.showMessage('Select a docket delete data from.')
     }

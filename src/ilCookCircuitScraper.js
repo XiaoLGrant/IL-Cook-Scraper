@@ -35,6 +35,7 @@ export function addLeadingZeroes(seq){
     }
 }
 
+//Format aase number as YYYYDSSSSSS (year, div, sequence)
 export function formatCaseNum(caseNum){
     const seqStr = addLeadingZeroes(caseNum[2])
     return ('' + caseNum[0]) + ('' + caseNum[1]) + seqStr
