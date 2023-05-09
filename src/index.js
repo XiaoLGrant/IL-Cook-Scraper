@@ -242,7 +242,7 @@ startButton.addEventListener('clicked', async function() {
                 ])
 
             } else {
-                progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
+                progressTracker.setPlainText(`Case sealed or not found: ${caseNumStr}`)
             }
         }
         await browser.close();

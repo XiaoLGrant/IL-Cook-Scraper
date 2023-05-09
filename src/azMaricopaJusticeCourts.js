@@ -86,10 +86,6 @@ export async function scrapeEvents(browser, page) {
                 eventInfo['eventResult'] = caseData[i][2]
                 eventInfo['eventResultDate'] = caseData[i][3]
                 eventInfo['proofFiled'] = true
-                // eventInfo[i] = {
-                //     "eventResult": caseData[i][2],
-                //     "eventResultDate": caseData[i][3]
-                // }
                 break;
             }
         }
@@ -140,22 +136,21 @@ export async function scrapeDocket(browser, page, div){
         const proofInfo = await scrapeEvents(browser, page)
     
         const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
-        console.log(objectCaseInfo)
-        console.log(proofInfo)
-        // const { data, error } = await supabase.from('az_maricopa_justice_court_cases').insert([
-        //     { state: 'AZ',
-        //     county: 'Maricopa',
-        //     division: div,
-        //     case_num: objectCaseInfo.caseNum,
-        //     date_filed: objectCaseInfo.dateFiled,
-        //     case_type: objectCaseInfo.caseType,
-        //     plaintiff: objectCaseInfo.plaintiff,
-        //     attorney: objectCaseInfo.attorney,
-        //     calendar_event: objectCaseInfo.calendarEvent,
-        //     proof_filed: proofInfo.proofFiled,
-        //     proof_result: proofInfo.eventResult,
-        //     proof_result_date: proofInfo.eventResultDate }
-        // ])
+
+        const { data, error } = await supabase.from('az_maricopa_justice_court_cases').insert([
+            { state: 'AZ',
+            county: 'Maricopa',
+            division: div,
+            case_num: objectCaseInfo.caseNum,
+            date_filed: objectCaseInfo.dateFiled,
+            case_type: objectCaseInfo.caseType,
+            plaintiff: objectCaseInfo.plaintiff,
+            attorney: objectCaseInfo.attorney,
+            calendar_event: objectCaseInfo.calendarEvent,
+            proof_filed: proofInfo.proofFiled,
+            proof_result: proofInfo.eventResult,
+            proof_result_date: proofInfo.eventResultDate }
+        ])
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }
