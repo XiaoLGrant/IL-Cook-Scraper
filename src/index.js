@@ -219,6 +219,34 @@ startButton.addEventListener('clicked', async function() {
         }
 
     } if (selectedDocket === 2) { //scrape AZ Maricopa Justice Courts docket
+        let timeoutId
+        function azMaricopaTimeoutLoop(curr, stop, year, div) {
+            timeoutId = setTimeout(async function scrape() {
+                if (curr <= stop) {
+                    const browser = await puppeteer.launch();
+                    const page = await browser.newPage();
+                    await AzMaricopaJC.navigateToPage(browser, page, 'https://justicecourts.maricopa.gov/app/courtrecords/CaseSearch?q=cn');
+                    let currCase = [year, div, curr]
+                    let caseNumStr = AzMaricopaJC.formatCaseNum(currCase)
+                    progressTracker.setPlainText(`Currently scraping: ${caseNumStr}`);
+                    let successSearch = await AzMaricopaJC.searchCaseNum(browser, page, currCase[1], caseNumStr);
+                    await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true});
+                    if (successSearch) {
+                        progressTracker.setPlainText(`Case found: ${caseNumStr}`)
+                        AzMaricopaJC.scrapeDocket(browser, page, currCase[1])
+                    } else if (!successSearch) {
+                        progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
+                        console.error('No case found')
+                    }
+                    await browser.close()
+                    curr++
+                    timeoutId = setTimeout(scrape, Math.random() * (5000-3000) + 3000)
+                } else {
+                console.log('run clear timeout');
+                clearTimeout(timeoutId)
+                }
+        }, Math.random() * (5000-3000) + 3000)
+        
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text()

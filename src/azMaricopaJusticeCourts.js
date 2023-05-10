@@ -12,7 +12,7 @@ export async function navigateToPage(browser, page, url){
         let status = await page.goto(url);
         status = status.status();
         if (status != 404) {
-            await page.waitForSelector('#MainContent_ContentPanel');
+            await page.waitForSelector('#MainContent_SearchByCase');
         } else {
             console.log('404 error')
         }
@@ -137,7 +137,7 @@ export async function scrapeDocket(browser, page, div){
     
         const objectCaseInfo = Object.fromEntries(caseInfo.flat(1)) //new data to be added
 
-        const { data, error } = await supabase.from('az_maricopa_justice_court_cases').insert([
+        const { data, error } = await supabase.from('az_maricopa_justice_courts_cases').insert([
             { state: 'AZ',
             county: 'Maricopa',
             division: div,
@@ -151,6 +151,9 @@ export async function scrapeDocket(browser, page, div){
             proof_result: proofInfo.eventResult,
             proof_result_date: proofInfo.eventResultDate }
         ])
+        if (error) {
+            console.log('supabase error:', error)
+        }
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }
