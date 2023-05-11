@@ -63,7 +63,8 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
         //Check if the case was found on the docket and if it is sealed
         const checkCaseSealed = await page.$('#MainContent_CaseIsSealedAlert');
         const checkCaseFound = await page.$('#MainContent_CaseNotFoundAlert');
-        if (checkCaseSealed !== null || checkCaseFound !== null) {
+        const checkCaseRule123 = await page.$('#MainContent_CaseIsRule123Alert');
+        if (checkCaseSealed !== null || checkCaseFound !== null || checkCaseRule123 !== null) {
             return false;
         } else {
             return navigate[1].ok();
