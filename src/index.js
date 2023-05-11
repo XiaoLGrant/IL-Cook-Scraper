@@ -254,7 +254,7 @@ startButton.addEventListener('clicked', async function() {
         const location = fileDialog.selectedFiles();
         const fileName = fileNameInput.text();
 
-        if (fileDialog.result() == 2 && fileName.length > 0) {
+        if (fileDialog.result() == 1 && fileName.length > 0) {
             AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
         } else {
             errorMessage.showMessage('Please enter a file name.')
