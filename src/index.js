@@ -240,7 +240,7 @@ startButton.addEventListener('clicked', async function() {
                 await AzMaricopaJC.scrapeDocket(browser, page, div)
             } else {
                 progressTracker.setPlainText(`Case sealed or not found: ${caseNumStr}`)
-                await AzMaricopaJC.sleep(Math.random() * (3000 - 1000 + 1) + 1000)
+                await AzMaricopaJC.sleep(Math.random() * (6000 - 3000 + 1) + 3000)
             }
             await Promise.all([
                 page.click('.jc-btn-back'),

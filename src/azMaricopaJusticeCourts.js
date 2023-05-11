@@ -52,7 +52,7 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
         await caseNumField.click({clickCount: 3});
         await caseNumField.press('Backspace'); 
         await caseNumField.type(`${caseNumStr}`);
-        await sleep(Math.random() * (3000 - 1000 + 1) + 1000);
+        await sleep(Math.random() * (5000 - 2000 + 1) + 2000);
         //Search the case number
         const navigate = await Promise.all([
             page.click('#CaseSearchlink'),
@@ -162,7 +162,7 @@ export async function scrapeDocket(browser, page, div){
         if (error) {
             console.log('supabase error:', error)
         }
-        await sleep(Math.random() * (10000 - 5000 + 1) + 5000)
+        await sleep(Math.random() * (15000 - 10000 + 1) + 10000)
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }
