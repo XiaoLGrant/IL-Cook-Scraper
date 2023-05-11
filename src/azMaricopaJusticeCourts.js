@@ -6,6 +6,9 @@ const supabaseUrl = process.env.SUPABASE_URL
 const supaBaseKey = process.env.SUPABASE_KEY
 const supabase = createClient(supabaseUrl, supaBaseKey)
 
+//Sleep function to avoid spamming client with requests
+export const sleep = ms => new Promise(res => setTimeout(res, ms))
+
 //Navigate to docket & wait for page to load
 export async function navigateToPage(browser, page, url){
     try {
@@ -46,27 +49,29 @@ export async function searchCaseNum(browser, page, div, caseNumStr) {
     try {        
         //Input case number on the docket site
         const caseNumField = await page.waitForSelector('#MainContent_caseNumber');
-        await caseNumField.type(`${caseNumStr}`)
-        
+        await caseNumField.click({clickCount: 3});
+        await caseNumField.press('Backspace'); 
+        await caseNumField.type(`${caseNumStr}`);
+        await sleep(Math.random() * (3000 - 1000 + 1) + 1000);
         //Search the case number
         const navigate = await Promise.all([
             page.click('#CaseSearchlink'),
             page.waitForNavigation({waitfor: 'networkidle0'})
-        ])
-        await page.screenshot({path: `currentCase.png`, fullPage: true})
+        ]);
+        await page.screenshot({path: `currentCase.png`, fullPage: true});
 
         //Check if the case was found on the docket and if it is sealed
-        const checkCaseSealed = await page.$('#MainContent_CaseIsSealedAlert')
-        const checkCaseFound = await page.$('#MainContent_CaseNotFoundAlert')
+        const checkCaseSealed = await page.$('#MainContent_CaseIsSealedAlert');
+        const checkCaseFound = await page.$('#MainContent_CaseNotFoundAlert');
         if (checkCaseSealed !== null || checkCaseFound !== null) {
-            return false
+            return false;
         } else {
-            return navigate[1].ok()
+            return navigate[1].ok();
         }
     } catch(err) {
-        console.error('Failed to search case number due to error: ', err)
-    }
-}
+        console.error('Failed to search case number due to error: ', err);
+    };
+};
 
 //Scrape all Events data from docket, then check if any case activity is related to proofs
 export async function scrapeEvents(browser, page) {
@@ -98,7 +103,10 @@ export async function scrapeEvents(browser, page) {
 //Select all data from IL Cook Circuit Cases table, then save a local csv
 export async function downloadCsv(url){
     try {
-        const {data, error} = await supabase.from('az_maricopa_justice_court_cases').select().csv()
+        const {data, error} = await supabase.from('az_maricopa_justice_courts_cases').select().csv()
+        if (error) {
+            console.log(error)
+        }
         fs.writeFile(url, data, (err) => {
             if (err) {
                 console.log(err)
@@ -111,7 +119,7 @@ export async function downloadCsv(url){
 
 export async function deleteAllData(){
     try {
-        const { error } = await supabase.from('az_maricopa_justice_court_cases').delete().gt('id', 0)
+        const { error } = await supabase.from('az_maricopa_justice_courts_cases').delete().gt('id', 0)
         if (error) {
             console.log('Failed to delete data from the database: ', error)
         } else {
@@ -154,6 +162,7 @@ export async function scrapeDocket(browser, page, div){
         if (error) {
             console.log('supabase error:', error)
         }
+        await sleep(Math.random() * (10000 - 5000 + 1) + 5000)
     } catch(err) {
         console.error('Failed to scrape case data due to error: ', err)
     }

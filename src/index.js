@@ -178,12 +178,13 @@ rootView.setStyleSheet(rootStyleSheet);
 
 //Event handling
 startButton.addEventListener('clicked', async function() {
-    if (selectedDocket === 1) {//scrape IL cook circuit docket
+    if (selectedDocket === 1) {
+        //scrape IL cook circuit docket
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text()
         const div = divInput.text()
-        const browser = await puppeteer.launch({headless: false})
+        const browser = await puppeteer.launch()
         const page = await browser.newPage()
         await page.setDefaultNavigationTimeout(60000)
         await page.setUserAgent(random_useragent.getRandom())
@@ -218,40 +219,13 @@ startButton.addEventListener('clicked', async function() {
             errorMessage.showMessage('Please enter a file name.')
         }
 
-    } if (selectedDocket === 2) { //scrape AZ Maricopa Justice Courts docket
-        let timeoutId
-        function azMaricopaTimeoutLoop(curr, stop, year, div) {
-            timeoutId = setTimeout(async function scrape() {
-                if (curr <= stop) {
-                    const browser = await puppeteer.launch();
-                    const page = await browser.newPage();
-                    await AzMaricopaJC.navigateToPage(browser, page, 'https://justicecourts.maricopa.gov/app/courtrecords/CaseSearch?q=cn');
-                    let currCase = [year, div, curr]
-                    let caseNumStr = AzMaricopaJC.formatCaseNum(currCase)
-                    progressTracker.setPlainText(`Currently scraping: ${caseNumStr}`);
-                    let successSearch = await AzMaricopaJC.searchCaseNum(browser, page, currCase[1], caseNumStr);
-                    await page.screenshot({path: `${currCase.join('')}.png`, fullPage: true});
-                    if (successSearch) {
-                        progressTracker.setPlainText(`Case found: ${caseNumStr}`)
-                        AzMaricopaJC.scrapeDocket(browser, page, currCase[1])
-                    } else if (!successSearch) {
-                        progressTracker.setPlainText(`Case not found: ${caseNumStr}`)
-                        console.error('No case found')
-                    }
-                    await browser.close()
-                    curr++
-                    timeoutId = setTimeout(scrape, Math.random() * (5000-3000) + 3000)
-                } else {
-                console.log('run clear timeout');
-                clearTimeout(timeoutId)
-                }
-        }, Math.random() * (5000-3000) + 3000)
-        
+    } if (selectedDocket === 2) { 
+        //scrape AZ Maricopa Justice Courts docket
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text()
         const div = divInput.text()
-        const browser = await puppeteer.launch({headless: false})
+        const browser = await puppeteer.launch()
         const page = await browser.newPage()
         await page.setDefaultNavigationTimeout(60000)
         await page.setUserAgent(random_useragent.getRandom())
@@ -264,27 +238,27 @@ startButton.addEventListener('clicked', async function() {
             if (caseFound) {
                 progressTracker.setPlainText(`Case found, scraping data: ${caseNumStr}`)
                 await AzMaricopaJC.scrapeDocket(browser, page, div)
-                await Promise.all([
-                    page.click('.jc-btn-back'),
-                    page.waitForNavigation({waitfor: 'domcontentloaded'})
-                ])
-
             } else {
                 progressTracker.setPlainText(`Case sealed or not found: ${caseNumStr}`)
+                await AzMaricopaJC.sleep(Math.random() * (3000 - 1000 + 1) + 1000)
             }
+            await Promise.all([
+                page.click('.jc-btn-back'),
+                page.waitForNavigation({waitfor: 'domcontentloaded'})
+            ])
         }
         await browser.close();
 
-        // fileDialog.setFileMode(FileMode.Directory)        
-        // fileDialog.exec()
-        // const location = fileDialog.selectedFiles();
-        // const fileName = fileNameInput.text();
+        fileDialog.setFileMode(FileMode.Directory)        
+        fileDialog.exec()
+        const location = fileDialog.selectedFiles();
+        const fileName = fileNameInput.text();
 
-        // if (fileDialog.result() == 2 && fileName.length > 0) {
-        //     AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
-        // } else {
-        //     errorMessage.showMessage('Please enter a file name.')
-        // }
+        if (fileDialog.result() == 2 && fileName.length > 0) {
+            AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
+        } else {
+            errorMessage.showMessage('Please enter a file name.')
+        }
 
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
@@ -300,12 +274,20 @@ downloadButton.addEventListener('clicked', () => {
 
         if (fileDialog.result() == 1 && fileName.length > 0) {
             IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
-        } else if (fileDialog.result() == 2 && fileName.length > 0) {
-            AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
         } else {
             errorMessage.showMessage('Please enter a file name.')
         }
         
+    } else if (selectedDocket === 2) {
+        fileDialog.setFileMode(FileMode.Directory)        
+        fileDialog.exec()
+        const location = fileDialog.selectedFiles();
+        const fileName = fileNameInput.text();
+        if (fileDialog.result() == 1 && fileName.length > 0) {
+            AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
+        } else {
+            errorMessage.showMessage('Please enter a file name.')
+        }
     } else {
         errorMessage.showMessage('Select a docket to download from.')
     }
