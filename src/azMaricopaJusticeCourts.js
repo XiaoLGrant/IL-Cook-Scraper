@@ -139,7 +139,7 @@ export async function scrapeDocket(browser, page, div){
             ["caseType", e.querySelector('.jc-case-information .row:nth-child(3) .jc-case-info-wrap .span3-4').innerText],
             ["plaintiff", e.querySelector('.jc-party-information .jc-case-party-info .span3-4').innerText.trim()],
             ["attorney", e.querySelector('.jc-party-information .jc-case-info-wrap:nth-child(3) .jc-case-info-col:nth-child(2) .span3-4').innerText.trim()],
-            ["calendarEvent", e.querySelector('.jc-case-event').innerText.trim()]
+            ["calendarEvent", e.querySelector('#MainContent_NoCalendarEventsLabel') ? null : e.querySelector('.jc-case-event').innerText.trim()]
         ])))
 
         const proofInfo = await scrapeEvents(browser, page)
