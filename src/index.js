@@ -1,4 +1,4 @@
-import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
+import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, QCheckBox, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import * as AzMaricopaJC from './azMaricopaJusticeCourts.js'
 import puppeteer from 'puppeteer'
@@ -102,6 +102,18 @@ seqRowLayout.addWidget(endSeqLabel)
 const endSeqInput = new QLineEdit();
 endSeqInput.setObjectName('endSeqInput')
 seqRowLayout.addWidget(endSeqInput)
+
+//Donwload file input fields
+const autoDownloadCheckbox = new QCheckBox();
+autoDownloadCheckbox.setText("Automatically download all cases after scrape");
+autoDownloadCheckbox.setChecked(false);
+seqRowLayout.addWidget(autoDownloadCheckbox);
+
+if (autoDownloadCheckbox.isChecked(true)) {
+    console.log('box is checked')
+} else {
+    console.log('box is not checked')
+}
 
 const fileNameLabel = new QLabel();
 fileNameLabel.setText('File Name')
