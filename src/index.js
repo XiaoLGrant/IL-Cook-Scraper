@@ -106,14 +106,8 @@ seqRowLayout.addWidget(endSeqInput)
 //Donwload file input fields
 const autoDownloadCheckbox = new QCheckBox();
 autoDownloadCheckbox.setText("Automatically download all cases after scrape");
-autoDownloadCheckbox.setChecked(false);
+autoDownloadCheckbox.setChecked(true);
 seqRowLayout.addWidget(autoDownloadCheckbox);
-
-if (autoDownloadCheckbox.isChecked(true)) {
-    console.log('box is checked')
-} else {
-    console.log('box is not checked')
-}
 
 const fileNameLabel = new QLabel();
 fileNameLabel.setText('File Name')
@@ -220,17 +214,18 @@ startButton.addEventListener('clicked', async function() {
         }
         await browser.close();
 
-        fileDialog.setFileMode(FileMode.Directory)        
-        fileDialog.exec()
-        const location = fileDialog.selectedFiles();
-        const fileName = fileNameInput.text();
-
-        if (fileDialog.result() == 1 && fileName.length > 0) {
-            IlCookCircuit.downloadCsv(`${location}\\${fileName}.csv`)
-        } else {
-            errorMessage.showMessage('Please enter a file name.')
-        }
-
+        if (autoDownloadCheckbox.isChecked(true)) {
+            fileDialog.setFileMode(FileMode.Directory)   ;     
+            fileDialog.exec();
+            const location = fileDialog.selectedFiles();
+            const fileName = fileNameInput.text();
+            if (fileDialog.result() == 1 && fileName.length > 0) {
+                AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`);
+            } else {
+                errorMessage.showMessage('Please enter a file name.');
+            };
+        };
+        
     } if (selectedDocket === 2) { 
         //scrape AZ Maricopa Justice Courts docket
         let startSeq = Number(startSeqInput.text())
@@ -259,18 +254,19 @@ startButton.addEventListener('clicked', async function() {
                 page.waitForNavigation({waitfor: 'domcontentloaded'})
             ])
         }
-        await browser.close();
+        await browser.close();   
 
-        fileDialog.setFileMode(FileMode.Directory)        
-        fileDialog.exec()
-        const location = fileDialog.selectedFiles();
-        const fileName = fileNameInput.text();
-
-        if (fileDialog.result() == 1 && fileName.length > 0) {
-            AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`)
-        } else {
-            errorMessage.showMessage('Please enter a file name.')
-        }
+        if (autoDownloadCheckbox.isChecked(true)) {
+            fileDialog.setFileMode(FileMode.Directory)   ;     
+            fileDialog.exec();
+            const location = fileDialog.selectedFiles();
+            const fileName = fileNameInput.text();
+            if (fileDialog.result() == 1 && fileName.length > 0) {
+                AzMaricopaJC.downloadCsv(`${location}\\${fileName}.csv`);
+            } else {
+                errorMessage.showMessage('Please enter a file name.');
+            };
+        };
 
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
