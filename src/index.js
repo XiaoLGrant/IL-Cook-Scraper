@@ -1,6 +1,7 @@
 import { QMainWindow, QWidget, QLabel, FlexLayout, QPushButton, QLineEdit, QComboBox, QFileDialog, QCheckBox, FileMode, QErrorMessage, QPlainTextEdit } from '@nodegui/nodegui'
 import * as IlCookCircuit from './ilCookCircuitScraper.js'
 import * as AzMaricopaJC from './azMaricopaJusticeCourts.js'
+import * as AbcAdmin from './abcAdminPage.js'
 import puppeteer from 'puppeteer'
 import random_useragent from 'random-useragent'
 
@@ -35,6 +36,7 @@ const selectDocket = new QComboBox();
 selectDocket.addItem(undefined, 'Select a Docket');
 selectDocket.addItem(undefined, 'IL Cook Circuit');
 selectDocket.addItem(undefined, 'AZ Maricopa Justice Court')
+selectDocket.addItem(undefined, 'ABC Admin Page')
 
 fieldsetLayout.addWidget(docketRow);
 fieldsetLayout.addWidget(selectDocket);
@@ -50,6 +52,9 @@ selectDocket.addEventListener('currentIndexChanged', (index) => {
     } else if (index === 2) {
         caseNumRow.setHidden(false);
         selectedDocket = 2;
+    } else if (index === 3) {
+        caseNumRow.setHidden(true);
+        selectedDocket = 3;
     }
 })
 
@@ -121,7 +126,7 @@ seqRowLayout.addWidget(fileNameInput)
 const progressTracker = new QPlainTextEdit();
 progressTracker.setObjectName('progressTracker');
 progressTracker.setReadOnly(true);
-rootViewLayout.addWidget(progressTracker)
+rootViewLayout.addWidget(progressTracker);
 
 //Button row
 const buttonRow =  new QWidget();
@@ -226,13 +231,13 @@ startButton.addEventListener('clicked', async function() {
             };
         };
         
-    } if (selectedDocket === 2) { 
+    } else if (selectedDocket === 2) { 
         //scrape AZ Maricopa Justice Courts docket
         let startSeq = Number(startSeqInput.text())
         const endSeq = Number(endSeqInput.text())
         const year = yearInput.text()
         const div = divInput.text()
-        const browser = await puppeteer.launch()
+        const browser = await puppeteer.launch({headless: false})
         const page = await browser.newPage()
         await page.setDefaultNavigationTimeout(60000)
         await page.setUserAgent(random_useragent.getRandom())
@@ -268,6 +273,16 @@ startButton.addEventListener('clicked', async function() {
             };
         };
 
+    } else if (selectedDocket === 3) {
+        //Scrape user names from ABC Admin Dashboard, then console log them
+        const browser = await puppeteer.launch({headless: false})
+        const page = await browser.newPage()
+        await page.setDefaultNavigationTimeout(60000)
+        await page.setUserAgent(random_useragent.getRandom())
+        await AbcAdmin.navigateToPage(browser, page, 'https://secure.abclegal.com/abc/customer/admin')
+        let names = await AbcAdmin.scrapeNames(browser, page)
+        console.log(names)
+        await browser.close(); 
     } else if (selectedDocket === 0) {
         errorMessage.showMessage('Select a docket to scrape from.')
     }
